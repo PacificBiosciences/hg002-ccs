@@ -57,7 +57,7 @@ def decompose_GT(GT, FORMAT, position):
     '0/1:1,8:21:99'
     """
     newgtfields = []
-        gtfields = GT.split(':')
+    gtfields = GT.split(':')
     formatfields = FORMAT.split(':')
     for field in zip(formatfields, gtfields):
         if field[0] in FORMAT_remove:
