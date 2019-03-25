@@ -1,0 +1,103 @@
+results = 'downsampling-results'
+rates = [10,20,30,40,50,60,70,80,90]
+chromosomes = [i for i in range(1,23)] + ['X', 'Y']
+whatshap = '/MMCI/TM/scratch/jebler/whatshap/whatshap/venv/bin/whatshap'
+
+rule all:
+	input:
+		expand('downsampled-bams/{rate}/HG002.15kb.Q20.hs37d5.pbmm2.rate{rate}.chr{chrom}.bam', results=results, rate=rates , chrom=chromosomes),
+		expand('{results}/phase/{rate}/HG002.15kb.Q20.hs37d5.pbmm2.rate{rate}.chr{chrom}.phase.vcf', results=results, rate=rates + [100], chrom=chromosomes),
+		expand('{results}/evaluation/HG002.15kb.Q20.hs37d5.pbmm2.rate{rate}.all.phasing_statistics.tsv', results=results, rate=rates),
+		expand('{results}/plots/n50-plot.pdf', results=results)
+
+# downsample the data
+rule downsample_data:
+	input:
+		'unfiltered-bams/HG002.15kb.Q20.hs37d5.pbmm2.bam'
+	output:
+		'downsampled-bams/{rate}/HG002.15kb.Q20.hs37d5.pbmm2.rate{rate}.bam'
+	run:
+		shell('samtools view -h -bs .{wildcards.rate} {input} > {output}')
+		shell('samtools index {output}')
+
+# split downsampled bams by chromosome
+rule split_by_chromosome:
+	input:
+		'downsampled-bams/{rate}/HG002.15kb.Q20.hs37d5.pbmm2.rate{rate}.bam'
+	output:
+		'downsampled-bams/{rate}/HG002.15kb.Q20.hs37d5.pbmm2.rate{rate}.chr{chrom}.bam'
+	run:
+		shell('samtools view -h {input} {wildcards.chrom} | samtools view -Sb - > {output}')
+		shell('samtools index {output}')
+
+def phase_input(wildcards):
+	if wildcards.rate == '100':
+		return 'unfiltered-bams/HG002.15kb.Q20.hs37d5.pbmm2.{chrom}.bam'.format(chrom=wildcards.chrom)
+	else:
+		return 'downsampled-bams/{rate}/HG002.15kb.Q20.hs37d5.pbmm2.rate{rate}.chr{chrom}.bam'.format(results=wildcards.results, rate=wildcards.rate, chrom=wildcards.chrom)
+
+# phase full callset in downsampled BAMs
+rule run_phase:
+	input:
+		bam=phase_input,
+		vcf='callset/pacbio_minimap2_15kb_69500_b37_wgs/pacbio_minimap2_15kb_69500_b37_wgs.chr{chrom}.callset.vcf.gz',
+		fasta='fasta/hs37d5.{chrom,(Y|X|[0-9]+)}.fa'
+	output:
+		'{results}/phase/{rate}/HG002.15kb.Q20.hs37d5.pbmm2.rate{rate}.chr{chrom}.phase.vcf'
+	log:
+		'{results}/phase/{rate}/HG002.15kb.Q20.hs37d5.pbmm2.rate{rate}.chr{chrom}.phase.log'
+	shell:
+		'time ({whatshap} phase --indels --ignore-read-groups -o {output} --mapq 60 --reference {input.fasta} {input.vcf} {input.bam}) > {log} 2>&1'
+
+# create .dict for reference
+rule create_ref_dict:
+	input:
+		'fasta/hs37d5.fa'
+	output:
+		'fasta/hs37d5.dict'
+	shell:
+		'picard CreateSequenceDictionary R={input} O={output}'
+
+# merge chromosome-wise VCFs
+rule merge_vcfs:
+	input:
+		vcfs=expand('{{results}}/phase/{{rate}}/HG002.15kb.Q20.hs37d5.pbmm2.rate{{rate}}.chr{chrom}.phase.vcf', chrom=chromosomes),
+		dict='fasta/hs37d5.dict'
+	output:
+		'{results}/phase/{rate}/HG002.15kb.Q20.hs37d5.pbmm2.rate{rate}.all.phase.vcf'
+	run:
+		input_files = " ".join(["I={}".format(x) for x in input.vcfs])
+		shell('picard SortVcf {input_files} O={output} SEQUENCE_DICTIONARY={input.dict}')
+
+# compress VCF
+rule compress_vcf:
+	input:
+		'{filename}.vcf'
+	output:
+		'{filename}.vcf.gz'
+	run:
+		shell('bgzip -c {input} > {output}')
+		shell('tabix -p vcf {output}')
+
+# compute phasing statistics
+rule run_stats:
+	input:
+		vcf='{results}/phase/{rate}/HG002.15kb.Q20.hs37d5.pbmm2.rate{rate}.all.phase.vcf.gz',
+		lengths='baseline/chromosome-lengths-noN.txt'
+	output:
+		'{results}/evaluation/HG002.15kb.Q20.hs37d5.pbmm2.rate{rate}.all.phasing_statistics.tsv'
+	log:
+		'{results}/evaluation/HG002.15kb.Q20.hs37d5.pbmm2.rate{rate}.all.phasing_statistics.log'
+	shell:
+		'{whatshap} stats --tsv {output} --chr-lengths {input.lengths} {input.vcf} > {log} 2>&1'
+
+# plot N50 vs rate (whole genome)
+rule plot:
+	input:
+		expand('{{results}}/evaluation/HG002.15kb.Q20.hs37d5.pbmm2.rate{rate}.all.phasing_statistics.tsv', rate=rates + [100])
+	output:
+		'{results}/plots/n50-plot.pdf'
+	log:
+		'{results}/plots/n50-plot.log'
+	shell:
+		'python3 plot-N50-coverages.py {input} {output} > {log}'

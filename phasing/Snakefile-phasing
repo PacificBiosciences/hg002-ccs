@@ -1,0 +1,216 @@
+# chromosomes to be processed
+chromosomes=[x for x in range(1,23)] + ['X', 'Y']
+# callset to be phased
+existing_callsets = ['pacbio-15kb-hapsort-wgs']
+# phasing baseline
+phasing_baseline = 'baseline/RTG.hg19.10x.trio-whatshap'
+# readlengths to be considered
+readlengths = [5000,10000,15000,20000,25000,30000,35000,40000,45000,50000,70000,90000,110000,130000,150000,170000,190000,210000]
+
+# path to whatshap
+whatshap = '/MMCI/TM/scratch/jebler/whatshap/whatshap/venv/bin/whatshap'
+
+rule all:
+	input:
+		expand('fasta/hs37d5.{chrom}.fa', chrom=chromosomes),
+		expand('callset/{method}/{method}.chr{chrom}.vcf', method=existing_callsets, chrom=chromosomes),
+		expand('phased/{method}/{method}.chr{chrom}.phased.vcf', chrom=chromosomes, method = existing_callsets),
+		expand('phased/{method}/{method}.{type}.phased.vcf.gz', type=['snps', 'indels', 'all'], method = existing_callsets),
+		expand('evaluation/{method}/{type}/stats/phasing_statistics.tsv', type=['snps', 'indels','all'], method = existing_callsets),
+		expand('evaluation/{method}/{type}/compare/phasing_comparison.tsv', type=['snps', 'indels', 'all'], method = existing_callsets),
+		'plotting/length_distribution/blocksizes-sum.bestcase.pdf',
+		'plotting/length_distribution/blocksizes-sum.deepvariant.pdf',
+		expand('plotting/theoretical-N50/bestcase_blocks/HG002.bestcase-{readlen}.vcf.gz', readlen=readlengths),
+		'plotting/theoretical-N50/blocksizes-plots.bestcase.pdf'
+
+########## preprocessing ##########
+
+# split fasta by chromosome (reference file is in fasta/)
+rule extract_chrom_vcf:
+	input:
+		'fasta/hs37d5.fa'
+	output:
+		'fasta/hs37d5.{chrom, (X|Y|MT|[0-9]+)}.fa'
+	shell:
+		'samtools faidx {input} {wildcards.chrom} > {output}'
+
+
+# create index (.fai) for reference
+rule index_fasta:
+	input:
+		'fasta/hs37d5.{chrom,(Y|X|MT|[0-9]+).fa'
+	output:
+		'fasta/hs37d5.{chrom,(Y|X|[0-9]+)}.fa.fai'
+	shell:
+		'samtools faidx {input}'
+
+
+# split existing callsets by chromosome (callsets are in precomputed_callsets/)
+rule process_existing_calls:
+	input:
+		'precomputed_callsets/{method}.vcf.gz'
+	output:
+		'callset/{method}/{method}.chr{chrom}.vcf'
+	run:
+		shell('tabix -h {input} {wildcards.chrom} > {output}')
+
+
+# split bam file by chromosome (bam-files are in bam/)
+rule extract_chrom_bam:
+	input:
+		'bam/HG002.Q20.hs37d5.pbmm2.MAPQ60.bam'
+	output:
+		'bam/HG002.Q20.hs37d5.pbmm2.MAPQ60.{chrom, (X|Y|MT|[0-9]+)}.bam'
+	run:
+		shell('samtools view -h {input} {wildcards.chrom} | samtools view -Sb - > {output}')
+
+# compute bam.bai
+rule index_bam:
+	input:
+		'bam/HG002.Q20.hs37d5.pbmm2.MAPQ60.{chrom, (X|Y|MT|[0-9]+)}.bam'
+	output:
+		'bam/HG002.Q20.hs37d5.pbmm2.MAPQ60.{chrom, (X|Y|MT|[0-9]+)}.bam.bai'
+	shell:
+		'samtools index {input}'
+
+
+########### phase callsets using whatshap  #############
+
+# run whatshap for single individual
+rule phase_whatshap_single:
+	input:
+		bam='bam/HG002.Q20.hs37d5.pbmm2.MAPQ60.{chrom}.bam',
+		fasta='fasta/hs37d5.{chrom,(Y|X|[0-9]+)}.fa',
+		vcf='callset/{method}/{method}.chr{chrom}.vcf'
+	output:
+		'phased/{method}/{method}.chr{chrom}.phased.vcf'
+	log:
+		'phased/{method}/{method}.chr{chrom}.phased.log'
+	shell:
+		'time ({whatshap} phase --indels --ignore-read-groups -o {output} --reference {input.fasta} {input.vcf} {input.bam}) > {log} 2>&1'
+
+
+############ merge chomosome-wise results ###############
+
+# create .dict for reference
+rule create_ref_dict:
+	input:
+		'fasta/hs37d5.fa'
+	output:
+		'fasta/hs37d5.dict'
+	shell:
+		'picard CreateSequenceDictionary R={input} O={output}'
+
+# merge all chromosome-wise vcfs
+rule merge_vcfs:
+	input:
+		vcfs=expand('phased/{{method}}/{{method}}.chr{chrom}.phased.vcf', chrom=chromosomes),
+		dict='fasta/hs37d5.dict'
+	output:
+		'phased/{method}/{method}.all.phased.vcf.gz'
+	run:
+		input_files = " ".join(["I={}".format(x) for x in input.vcfs])
+		shell('picard SortVcf {input_files} O={output} SEQUENCE_DICTIONARY={input.dict}')
+		shell('bgzip -c {input} > {output}')
+		shell('tabix -p vcf {output}')
+
+
+#############  analyse the phasings #################
+
+# extract varianttype (snps/indels)
+rule extract_varianttype:
+	input:
+		gz='phased/{method}/{method}.all.phased.vcf.gz',
+	output:
+		'phased/{method}/{method}.{type, (snps|indels)}.phased.vcf.gz'
+	run:
+		shell('bcftools view --type {wildcards.type} {input.gz} | bgzip > {output}')
+		shell('tabix -p vcf {output}')
+
+# compute single vcf statistics
+rule whatshap_stats:
+	input:
+		vcf='phased/{method}/{method}.{type}.phased.vcf.gz',
+		lengths='baseline/chromosome-lengths-noN.txt'
+	output:
+		'evaluation/{method}/{type}/stats/phasing_statistics.tsv'
+	log:
+		'evaluation/{method}/{type}/stats/phasing_statistics.log'
+	shell:
+		'{whatshap} stats --tsv {output} --chr-lengths {input.lengths} {input.vcf} > {log} 2>&1'
+
+# compare phasing to ground truth
+def compare_input(wildcards):
+	if wildcards.type == 'snps':
+		return '{baseline}.snps.vcf.gz'.format(baseline=phasing_baseline)
+	elif wildcards.type == 'indels':
+		return '{baseline}.indels.vcf.gz'.format(baseline=phasing_baseline)
+	elif wildcards.type == 'all':
+		return '{baseline}.vcf.gz'.format(baseline=phasing_baseline)
+	else:
+		assert(False)
+
+rule whatshap_compare:
+	input:
+		computed='phased/{method}/{method}.{type}.phased.vcf.gz',
+		baseline=compare_input
+	output:
+		tsv='evaluation/{method}/{type}/compare/phasing_comparison.tsv'
+	log:
+		'evaluation/{method}/{type}/compare/phasing_comparison.log'
+	shell:
+		'{whatshap} compare --tsv-pairwise {output.tsv}  {input.baseline} {input.computed} > {log} 2>&1'
+
+
+#############  plotting  #################
+
+### theoretical N50 ###
+
+# generate best case phasing blocks using the phasing baseline
+rule best_case_phasing:
+	input:
+		expand('{baseline}.vcf.gz', baseline=phasing_baseline)
+	output:
+		bestcase='plotting/length_distribution/bestcase_blocks/HG002.bestcase.vcf.gz',
+		pdf1='plotting/length_distribution/blocksizes.bestcase.pdf',
+		pdf2='plotting/length_distribution/blocksizes-sum.bestcase.pdf'
+	run:
+		shell('rtg vcfsubset -i {input} -o - --keep-sample HG002 | python3 bestcase-phasing.py 13500 | bgzip > {output.bestcase}')
+		shell('tabix -p vcf {output.bestcase}')
+		shell('{whatshap} compare --plot-blocksizes {output.pdf1} --plot-sum-of-blocksizes {output.pdf2} {output.bestcase} {output.bestcase}')
+
+# plot distribution of DeepVariant phased blocks
+rule plot_length_distribution:
+        input:
+		'phased/{method}/{method}.all.phased.vcf.gz'
+        output:
+                pdf1='plotting/length_distribution/blocksizes.deepvariant.pdf',
+                pdf2='plotting/length_distribution/blocksizes-sum.deepvariant.pdf'
+        shell:
+                '{whatshap} compare  --plot-blocksizes {output.pdf1} --plot-sum-of-blocksizes {output.pdf2} {input} {input}'
+
+### theoretical N50 for different read lengths ###
+
+# generate best case phasing blocks for different read length
+rule best_case_N50:
+	input:
+		vcf=expand('{baseline}.vcf.gz', baseline=phasing_baseline),
+		lengths='baseline/chromosome-lengths-noN.txt'
+	output:
+		bestcase='plotting/theoretical-N50/bestcase_blocks/HG002.bestcase-{readlen}.vcf.gz',
+		tsv='plotting/theoretical-N50/blocksizes-stats.bestcase-{readlen}.tsv'
+	run:
+		shell('rtg vcfsubset -i {input.vcf} -o - --keep-sample HG002 | python3 bestcase-phasing.py {wildcards.readlen} | bgzip > {output.bestcase}')
+		shell('tabix -p vcf {output.bestcase}')
+		shell('{whatshap} stats --tsv {output.tsv} --chr-lengths {input.lengths} {output.bestcase} ')
+
+# plot N50 vs readlength
+rule plot_theoretical_N50:
+	input:
+		expand('plotting/theoretical-N50/blocksizes-stats.bestcase-{readlen}.tsv', readlen=readlengths)
+	output:
+		'plotting/theoretical-N50/blocksizes-plots.bestcase.pdf'
+	log:
+		'plotting/theoretical-N50/blocksizes-plots.bestcase.log'
+	shell:
+		'python3 plot-N50-readlen.py {input} {output} > {log}'
