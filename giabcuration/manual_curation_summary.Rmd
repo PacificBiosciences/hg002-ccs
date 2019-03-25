@@ -1,0 +1,104 @@
+---
+title: "Manual Curation Counts"
+author: "Nate Olson"
+date: "12/21/2018"
+output: "pdf_document"
+---
+
+```{r}
+library(tidyverse)
+```
+
+Loaded cleaned version of table sent by Aaron Wenger.
+```{r}
+dat <- read_csv("data/manual_curation/justin_table_mod - Sheet1.csv") %>%
+    filter(`Var #` != 0) %>% 
+    ## homopol col annotation
+    mutate(homopol_TR = if_else(str_detect(Notes, "homopol|TR"), "Yes","No"))
+```
+Total number of variants
+```{r}
+nrow(dat)
+```
+Benchmark is correct for 30/31 in homopolymers
+DV/CCS is correct for 20/29 outside homopolymers, 14 of which are in LINE
+```{r}
+dat  %>% 
+    group_by(`Line Element`, `Correct\n Call`, homopol_TR) %>% 
+    summarise(count = n()) %>% 
+    arrange(homopol_TR, `Line Element`)
+```
+Should be 30 inside homopolymers
+
+Original table used to generate variant callset for manual curation
+```{r}
+dat2 <- read_csv("data/manual_curation/hg002-ccs-deepvar-curate-JZ - November 19, 2_38 AM - hg002-ccs-deepvar-curate-JZ.csv") %>% 
+    ## Removing extra line 
+    filter(POS != 232051483	| VAR != "GCA/G") %>% 
+    ## Matching variant notation with dat
+    mutate(VAR = if_else(POS == 232051483, "GCA/GCATCATGGAGAATGGGACATCTC", VAR))
+```
+
+The homopol and target_cat annotations should match unless the methods we used to filter out homopolymers missed some. 
+
+```{r}
+dat %>% 
+    rename(VAR = "Variant", CHROM = "Chr", POS = "Position") %>% 
+    left_join(dat2) %>% 
+    group_by(homopol_TR, target_cat) %>% 
+    summarise(count = n())
+```
+
+
+Variants no in homopolymers CCS errors due to neighboring homopolymers
+3	37083407
+6	41984320
+
+Variants in homopolymers not in our target regions, which were suppose to include all homopolymers and tandem repeats
+10	29087199 between a 3 bp T homopolymer and 6 bp C homopolymer not in bed files used to identify our target regions
+8	132575025 between 2 bp C homopolymer and 5 bp A homopolymer
+
+
+Variants not identified as in homopolymers or tandem repeats in manual curation notes.
+```{r}
+dat %>% 
+    rename(VAR = "Variant", CHROM = "Chr", POS = "Position") %>% 
+    left_join(dat2) %>% 
+    group_by(homopol_TR, target_cat) %>% 
+    filter(homopol_TR == "No", target_cat == "target")
+```
+Two variants, one correctly called by PacBio and one correctly called by GIAB. 
+__TODO__ want to verify that they are actually in homo or TR
+
+
+Variants described as near or in homopolymers or tandem repeats in manual curation notes but not in target regions.
+```{r}
+dat %>% 
+    rename(VAR = "Variant", CHROM = "Chr", POS = "Position") %>% 
+    left_join(dat2) %>% 
+    group_by(homopol_TR, target_cat) %>% 
+    filter(homopol_TR == "Yes", target_cat == "non-target")
+```
+8 variants in this category, 4 called correctly by GIAB and 4 by PacBio.   
+The 4 correctly called by GIAB are errors in the PacBio callsets due to neighboring homopolymers, and are all indels. 
+The 4 correctly called by PacBio are errors due to long tandem repeats not in the GA4GH TRs. 
+
+```{r}
+dat %>% 
+    rename(VAR = "Variant", CHROM = "Chr", POS = "Position") %>% 
+    left_join(dat2) %>% 
+    # colnames()
+    group_by(homopol_TR, target_cat, `Correct\n Call`, `Line Element`) %>% 
+    summarise(count = n()) %>% 
+    arrange(target_cat, `Line Element`, `Correct\n Call`, homopol_TR) %>% 
+    spread(`Correct\n Call`, count, fill = 0)
+```
+
+```{r}
+dat %>% 
+    rename(VAR = "Variant", CHROM = "Chr", POS = "Position") %>% 
+    left_join(dat2) %>% 
+    group_by(homopol_TR, target_cat) %>% 
+    filter(`Correct\n Call` == "GIAB", target_cat == "non-target")
+```
+

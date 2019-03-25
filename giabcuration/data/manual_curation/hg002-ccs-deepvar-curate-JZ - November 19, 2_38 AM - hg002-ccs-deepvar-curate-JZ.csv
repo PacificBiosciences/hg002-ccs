@@ -1,0 +1,62 @@
+callset,target_cat,var_cat,CHROM,POS,VAR,T.Var,Q.Var,T.gt,Q.gt,T.bk,Q.bk,TRUTH,QUERY,FILTER,PacBio,GIAB,Notes
+deepHap,non-target,AM.INDEL,2,232051483,G/GCATCATGGAGAATGGGACATCTC,INDEL,NOCALL,1|1,.,am,.,FN,.,.,N,Y,"PacBio data sometimes misaligned as 2bp del + 25bp ins, when it should be a hom 23bp ins; also in LINE"
+deepHap,non-target,AM.INDEL,2,232051483,GCA/G,NOCALL,INDEL,.,1/2,.,am,.,FP,.,-,-,-
+deepHap,non-target,AM.INDEL,3,37083407,G/A,INDEL,INDEL,2|2,1/2,am,am,FN,FP,.,N,Y,PacBio misaligned in short adjacent homopols
+deepHap,non-target,AM.INDEL,6,41984320,ACTAT/A,INDEL,NOCALL,0|1,.,am,.,FN,.,.,N,Y,PacBio misaligned due to complex variant with nearby homopol
+deepHap,non-target,AM.INDEL,4,11468804,CACACATATAT/C,INDEL,NOCALL,0/1,.,am,.,FN,.,.,Y,N,Appears that both correctly call complex var on one haplotype but GIAB missed 2bp ins on other haplotype
+deepHap,non-target,AM.INDEL,5,42740225,CT/C,INDEL,INDEL,1|1,1/2,am,am,FN,FP,.,Y,N,"GIAB calls 1bp del in LINE, but misses SNP phased with other SNPs on other haplotype"
+deepHap,target,AM.INDEL,2,9591845,CT/C,INDEL,INDEL,1/3,1/2,am,am,FN,FP,.,N,Y,PB error in long homopol
+deepHap,target,AM.INDEL,8,73675279,TAAAA/T,INDEL,INDEL,1/2,0/1,am,am,FN,FP,.,N,Y,PB misses 1bp ins in compound het in homopolymer
+deepHap,target,AM.INDEL,13,76646445,G/GA,INDEL,INDEL,2|1,0/1,am,am,FN,FP,.,N,Y,PB misses 1bp ins in compound het in homopolymer
+deepHap,target,AM.INDEL,19,1586670,A/ATTT,INDEL,INDEL,2|2,1/2,am,am,FN,FP,.,N,Y,PB calls 3bp and 4bp ins in homopol
+deepHap,target,AM.INDEL,15,44350983,C/CA,INDEL,INDEL,1|1,1/2,am,am,FN,FP,.,N,Y,PB calls 1bp and 2bp ins in homopol
+deepHap,non-target,AM.SNP,4,165276021,T/C,SNP,SNP,1|0,1/1,am,am,FN,FP,.,Y,N,"Not completely sure, but AJ trio appears to be homozygous in this region including a LINE with many SNPs, and illumina probably has mismapped reads here"
+deepHap,non-target,AM.SNP,2,230174543,A/G,SNP,SNP,0|1,1/1,am,am,FN,FP,.,N,Y,PB calls this and phased del as hom instead of het
+deepHap,non-target,AM.SNP,13,48291499,A/C,SNP,SNP,1|1,0/1,am,am,FN,FP,.,Y,N,short reads miss one HP in LINE with many SNPs
+deepHap,non-target,AM.SNP,2,5143996,G/A,SNP,SNP,1|0,1/1,am,am,FN,FP,.,Y,N,"Not completely sure, but AJ trio appears to be homozygous in this region including a LINE with many SNPs, and illumina/10x probably has mismapped reads here"
+deepHap,non-target,AM.SNP,21,25668597,G/A,SNP,SNP,1|1,0/1,am,am,FN,FP,.,N,Y,PB miscalls hom as het due to 1 ref read
+deepHap,target,AM.SNP,5,16287108,A/C,SNP,SNP,1|1,0/1,am,am,FN,FP,.,N,Y,PB miscalls hom as het due to homopol
+deepHap,target,AM.SNP,13,71512745,A/T,SNP,SNP,1|1,0/1,am,am,FN,FP,.,N,Y,PB miscalls hom as het due to homopol
+deepHap,target,AM.SNP,13,34840815,G/T,SNP,SNP,1|1,0/1,am,am,FN,FP,.,N,Y,PB miscalls hom as het due to homopol
+deepHap,target,AM.SNP,11,41384344,C/T,SNP,SNP,1|1,0/1,am,am,FN,FP,.,N,Y,"PB miscalls hom as het due to homopol, and nearby het ins as hom"
+deepHap,target,AM.SNP,12,51793781,A/C,SNP,SNP,1|1,0/1,am,am,FN,FP,.,N,Y,PB miscalls hom as het due to homopol
+deepHap,non-target,FN.INDEL,1,162491859,A/ATGTCTAG,INDEL,NOCALL,0/1,.,.,.,FN,.,.,N,Y,PB calls true complex variant hom ref
+deepHap,non-target,FN.INDEL,15,26120981,C/CTTACACTGGGCTTTTTGTAAGGA,INDEL,NOCALL,0|1,.,.,.,FN,.,.,N,Y,PB calls true complex variant hom ref
+deepHap,non-target,FN.INDEL,15,41943823,T/TCCTCTTCTCTCCTCTCC,INDEL,NOCALL,1|1,.,lm,.,FN,.,.,Y,U,"GIAB calls half of complex var, and other half is outside bed"
+deepHap,non-target,FN.INDEL,10,29087199,T/TCC,INDEL,NOCALL,0|1,.,.,.,FN,.,.,N,Y,PB calls true ins in 6bp homopol as hom ref and 1bp instead of 2
+deepHap,non-target,FN.INDEL,8,5930728,TACAC/T,INDEL,NOCALL,0/1,.,lm,.,FN,.,.,Y,N,PB correctly calls this a 32bp ins in long TR not in GA4GH TRs
+deepHap,target,FN.INDEL,3,107982543,AT/A,INDEL,NOCALL,1|0,.,lm,.,FN,.,.,N,Y,PB calls true indel as hom ref due to homopol
+deepHap,target,FN.INDEL,17,5198683,C/CA,INDEL,NOCALL,0|1,.,lm,.,FN,.,.,N,Y,PB misses true indel due to homopol
+deepHap,target,FN.INDEL,4,149672221,A/ATT,INDEL,NOCALL,0|1,.,.,.,FN,.,.,N,Y,PB misses true indel due to homopol
+deepHap,target,FN.INDEL,2,152262374,G/GTT,INDEL,NOCALL,1|0,.,.,.,FN,.,.,N,Y,PB calls true indel as hom ref due to homopol
+deepHap,target,FN.INDEL,2,236062930,G/GTT,INDEL,NOCALL,1|0,.,.,.,FN,.,.,N,Y,PB calls true indel as hom ref due to homopol
+deepHap,non-target,FN.SNP,6,57283620,T/C,SNP,NOCALL,0/1,.,.,.,FN,.,.,N,Y,PB misses series of nearby SNPs
+deepHap,non-target,FN.SNP,7,157385671,A/G,SNP,NOCALL,0/1,.,.,.,FN,.,.,Y,N,error in short reads likely due to long TR not in GA4GH TRs
+deepHap,non-target,FN.SNP,17,32064214,A/G,SNP,NOCALL,0/1,.,.,.,FN,.,.,Y,N,error in short reads likely due to LINE
+deepHap,non-target,FN.SNP,9,117917190,A/C,SNP,NOCALL,0|1,.,.,.,FN,.,.,N,Y,"no reads support this in PB 15kb CCS, but good support in PB, 10kb CCS, ONT and 10x, so I suspect it's missed due to few PB HP1 reads"
+deepHap,non-target,FN.SNP,6,9737425,T/C,SNP,NOCALL,0|1,.,.,.,FN,.,.,Y,N,error in short reads likely due to long TR not in GA4GH TRs
+deepHap,target,FN.SNP,5,55201041,A/G,SNP,NOCALL,0/1,.,.,.,FN,.,.,N,Y,PB calls true snp as hom ref due to homopol
+deepHap,target,FN.SNP,17,68021050,T/A,SNP,NOCALL,1|1,.,lm,.,FN,.,.,N,Y,PB calls true snp as hom ref due to homopol
+deepHap,target,FN.SNP,6,8353625,C/T,SNP,NOCALL,0|1,.,lm,.,FN,.,.,N,Y,PB calls parts of complex var in adjacent TRs as hom ref
+deepHap,target,FN.SNP,9,129471234,T/A,SNP,NOCALL,0|1,.,lm,.,FN,.,.,N,Y,PB calls part of complex var as hom ref due to homopol
+deepHap,target,FN.SNP,7,135981582,T/A,SNP,NOCALL,1|0,.,.,.,FN,.,.,N,Y,PB has incorrect candidates as hom ref due to homopol
+deepHap,non-target,FP.INDEL,1,94256825,A/AAC,NOCALL,INDEL,.,0/1,.,.,.,FP,.,Y,N,~6kb LINE with many other SNPs inside LINE
+deepHap,non-target,FP.INDEL,2,153864971,AT/A,NOCALL,INDEL,.,0/1,.,.,.,FP,.,Y,N,~6kb+~2kb LINE with many other SNPs inside LINEs
+deepHap,non-target,FP.INDEL,11,23338682,C/CT,NOCALL,INDEL,.,0/1,.,.,.,FP,.,Y,N,~1.5kb LINE but many SNPs inside and around LINE
+deepHap,non-target,FP.INDEL,4,165026074,A/AG,NOCALL,INDEL,.,0/1,.,.,.,FP,.,Y,N,~6kb LINE with many other SNPs inside LINE
+deepHap,non-target,FP.INDEL,8,132575025,C/CAAAAAAAAA,INDEL,INDEL,0/2,0/1,lm,lm,FN,FP,.,N,Y,10bp expansion of 5bp homopolymer miscalled as 9bp expansion
+deepHap,target,FP.INDEL,6,64897720,A/AT,NOCALL,INDEL,.,0/1,.,lm,.,FP,.,N,Y,PB calls extra ins in homopol
+deepHap,target,FP.INDEL,4,112819087,GA/G,NOCALL,INDEL,.,0/1,.,.,.,FP,.,Y,N,PB correctly calls del in homopol in LINE as well as other SNPs
+deepHap,target,FP.INDEL,7,38338238,C/CA,INDEL,INDEL,0|2,0/1,lm,lm,FN,FP,.,N,Y,PB calls 1bp ins instead of 2bp ins in homopol
+deepHap,target,FP.INDEL,11,61993476,CA/C,NOCALL,INDEL,.,0/1,.,lm,.,FP,.,N,Y,PB miscalls compound het in homopol
+deepHap,target,FP.INDEL,3,97014398,AT/A,NOCALL,INDEL,.,0/1,.,.,.,FP,.,N,Y,PB error in long homopol in LINE
+deepHap,non-target,FP.SNP,3,79181734,C/T,NOCALL,SNP,.,0/1,.,.,.,FP,.,Y,N,~6kb LINE with many other SNPs inside LINE
+deepHap,non-target,FP.SNP,1,35034071,T/C,NOCALL,SNP,.,0/1,.,.,.,FP,.,Y,N,LINE with many other SNPs inside and outside the LINE
+deepHap,non-target,FP.SNP,21,42288851,C/A,NOCALL,SNP,.,0/1,.,.,.,FP,.,Y,N,2kb LINE with many other SNPs inside LINE
+deepHap,non-target,FP.SNP,8,46873565,C/T,NOCALL,SNP,.,0/1,.,.,.,FP,.,Y,N,1kb long TR inside satellite - looks good in PB though not certain
+deepHap,non-target,FP.SNP,9,22350168,A/C,NOCALL,SNP,.,0/1,.,.,.,FP,.,Y,N,~6kb LINE with many other SNPs inside LINE
+deepHap,target,FP.SNP,20,4159335,C/T,NOCALL,SNP,.,0/1,.,lm,.,FP,.,N,Y,PB calls del instead of SNP in homopol
+deepHap,target,FP.SNP,4,94532444,T/G,NOCALL,SNP,.,0/1,.,.,.,FP,.,Y,N,~6kb LINE with many other SNPs inside LINE
+deepHap,target,FP.SNP,20,1347896,A/G,SNP,SNP,1|0,0/1,gm,lm,TP,FP,.,N,Y,PB makes extra paired ins/del that is the same as the SNP that it and GIAB call
+deepHap,target,FP.SNP,4,55520593,G/A,NOCALL,SNP,.,0/1,.,lm,.,FP,.,N,Y,PB makes incorrect complex call in homopolymer
+deepHap,target,FP.SNP,9,6900971,C/T,NOCALL,SNP,.,0/1,.,lm,.,FP,.,N,Y,PB calls SNP and DEL instead of just DEL due to homopolymer
