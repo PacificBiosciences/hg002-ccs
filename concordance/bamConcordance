@@ -252,10 +252,11 @@ def main():
 
     # Close input files
     inbam.close()
-    outbam.close()
+    reffasta.close()
 
     # Close output file
-    outbam.close()
+    if outbam:
+        outbam.close()
     outcsv.close()
 
 
