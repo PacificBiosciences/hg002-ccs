@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 """Measure concordance of read alignments to a reference genome"""
 
 from __future__ import division
@@ -197,7 +197,9 @@ def main():
     inbam = pysam.AlignmentFile(args.inbam)
     reffasta = pysam.FastaFile(args.reffasta)
     outcsv = open(args.outcsv, "w")
-    outcsv.write("#read,readLengthBp,subreadPasses,predictedConcordance,alignmentType,alignmentMapq,hcReadLengthBp,concordance,concordanceQv,mismatchBp,nonHpInsertionBp,nonHpDeletionBp,hpInsertionBp,hpDeletionBp\n")
+    outcsv.write("#read,readLengthBp,effectiveCoverage,subreadPasses,predictedConcordance,alignmentType," +
+                 "alignmentMapq,hcReadLengthBp,concordance,concordanceQv,mismatchBp,nonHpInsertionBp," +
+                 "nonHpDeletionBp,hpInsertionBp,hpDeletionBp\n")
     hcregionsbed = pysam.TabixFile(args.hcregions) if args.hcregions else None
     hcvariantsvcf = pysam.TabixFile(args.hcvariants) if args.hcvariants else None
     outbam = pysam.AlignmentFile(args.outbam, "wb", template=inbam) if args.outbam else None
@@ -233,14 +235,18 @@ def main():
             max(activeHcRegions[0].chromStart, al.reference_start) < min(activeHcRegions[0].chromEnd, al.reference_end)):
 
             alStats = measureConcordance(al, reffasta, activeHcRegions, activeHcVariants)
+            effectiveCoverage = str(round(al.get_tag("ec"), 2)) if al.has_tag("ec") else ""
             subreadPasses = str(al.get_tag("np")) if al.has_tag("np") else ""
             predictedConcordance = "%0.6f" % (al.get_tag("rq")) if al.has_tag("rq") else ""
             # TODO: max predicted concordance
             if alStats.hcReadLength > 0:
-                outcsv.write("%s,%d,%s,%s,%s,%d,%d,%0.6f,%0.2f,%d,%d,%d,%d,%d\n" % (al.query_name, al.query_length, subreadPasses, predictedConcordance,
-                    "Supplementary" if al.is_supplementary else "Primary", al.mapping_quality, alStats.hcReadLength,
-                    alStats.concordance, alStats.concordanceQv, alStats.mismatchBp, alStats.nonHpInsertionBp, alStats.nonHpDeletionBp,
-                    alStats.hpInsertionBp, alStats.hpDeletionBp))
+                row = "%s,%d,%s,%s,%s,%s,%d,%d,%0.6f,%0.2f,%d,%d,%d,%d,%d\n" % \
+                          (al.query_name, al.query_length, effectiveCoverage, subreadPasses, predictedConcordance,
+                          "Supplementary" if al.is_supplementary else "Primary", al.mapping_quality,
+                          alStats.hcReadLength, alStats.concordance, alStats.concordanceQv, alStats.mismatchBp,
+                          alStats.nonHpInsertionBp, alStats.nonHpDeletionBp, alStats.hpInsertionBp,
+                          alStats.hpDeletionBp)
+                outcsv.write(row)
 
                 #statscsv.write("%s,%d,%d,%d,%d,%d,%d,%d,%d,%d,%0.10f\n" % (al.query_name, al.query_length, alStats.hcReadLength, alStats.errors,
                 #    alStats.matches, alStats.mismatches, alStats.deletions, alStats.hpDeletions, alStats.insertions, alStats.hpInsertions, alStats.concordance))
