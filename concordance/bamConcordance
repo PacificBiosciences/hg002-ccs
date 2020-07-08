@@ -194,7 +194,7 @@ def main():
     global pysam; import pysam
 
     # Open files
-    inbam = pysam.AlignmentFile(args.inbam)
+    inbam = pysam.AlignmentFile(args.inbam, check_sq=False)
     reffasta = pysam.FastaFile(args.reffasta)
     outcsv = open(args.outcsv, "w")
     outcsv.write("#read,readLengthBp,effectiveCoverage,subreadPasses,predictedConcordance,alignmentType," +
@@ -204,54 +204,49 @@ def main():
     hcvariantsvcf = pysam.TabixFile(args.hcvariants) if args.hcvariants else None
     outbam = pysam.AlignmentFile(args.outbam, "wb", template=inbam) if args.outbam else None
 
-    activeChrom,activeChromLength,activeHcRegions,activeHcVariants = None, None, None, collections.defaultdict(list)
+    activeChrom,activeChromLength,activeHcRegions,activeHcVariants = None, None, collections.deque([]), collections.defaultdict(list)
     # Process alignments in sort order.
     for al in (inbam if not args.chrom else inbam.fetch(args.chrom)):
-        # For a new chromosome, update the list of HC regions and HC variants.
-        if al.reference_name != activeChrom:
-            activeChrom = al.reference_name
-            activeChromLength = reffasta.get_reference_length(activeChrom)
+        if not al.is_unmapped:
+            # For a new chromosome, update the list of HC regions and HC variants.
+            if al.reference_name != activeChrom:
+                activeChrom = al.reference_name
+                activeChromLength = reffasta.get_reference_length(activeChrom)
 
-            if hcregionsbed:
-                # List of non-overlapping, high-confidence regions, sorted by chromStart.
-                activeHcRegions = collections.deque(Bed(x) for x in hcregionsbed.fetch(al.reference_name))
-            else: # treat the whole chromosome as a high-confidence region
-                activeHcRegions = collections.deque([Bed("%s\t0\t%d" % (activeChrom, activeChromLength))])
+                if hcregionsbed:
+                    # List of non-overlapping, high-confidence regions, sorted by chromStart.
+                    activeHcRegions = collections.deque(Bed(x) for x in hcregionsbed.fetch(al.reference_name))
+                else: # treat the whole chromosome as a high-confidence region
+                    activeHcRegions = collections.deque([Bed("%s\t0\t%d" % (activeChrom, activeChromLength))])
 
-            activeHcVariants = collections.defaultdict(list)
-            if hcvariantsvcf:
-                # Map from chromStart to known variants.
-                for line in hcvariantsvcf.fetch(al.reference_name):
-                    for vcf in Vcf.LineToVcfs(line):
-                        activeHcVariants[vcf.chromStart].append(vcf)
+                activeHcVariants = collections.defaultdict(list)
+                if hcvariantsvcf:
+                    # Map from chromStart to known variants.
+                    for line in hcvariantsvcf.fetch(al.reference_name):
+                        for vcf in Vcf.LineToVcfs(line):
+                            activeHcVariants[vcf.chromStart].append(vcf)
 
-        # Pop high confidence regions that end before the current alignment.
-        while len(activeHcRegions) and activeHcRegions[0].chromEnd <= al.reference_start:
-            activeHcRegions.popleft()
+            # Pop high confidence regions that end before the current alignment.
+            while len(activeHcRegions) and activeHcRegions[0].chromEnd <= al.reference_start:
+                activeHcRegions.popleft()
 
-        # Only measure concordance for non-secondary alignments that overlap a high confidence region.
-        if (not al.is_secondary and
-            len(activeHcRegions) and
-            max(activeHcRegions[0].chromStart, al.reference_start) < min(activeHcRegions[0].chromEnd, al.reference_end)):
+            # Only measure concordance for non-secondary alignments that overlap a high confidence region.
+            if (not al.is_secondary and
+                len(activeHcRegions) and
+                max(activeHcRegions[0].chromStart, al.reference_start) < min(activeHcRegions[0].chromEnd, al.reference_end)):
 
-            alStats = measureConcordance(al, reffasta, activeHcRegions, activeHcVariants)
-            effectiveCoverage = str(round(al.get_tag("ec"), 2)) if al.has_tag("ec") else ""
-            subreadPasses = str(al.get_tag("np")) if al.has_tag("np") else ""
-            predictedConcordance = "%0.6f" % (al.get_tag("rq")) if al.has_tag("rq") else ""
-            # TODO: max predicted concordance
-            if alStats.hcReadLength > 0:
-                row = "%s,%d,%s,%s,%s,%s,%d,%d,%0.6f,%0.2f,%d,%d,%d,%d,%d\n" % \
-                          (al.query_name, al.query_length, effectiveCoverage, subreadPasses, predictedConcordance,
-                          "Supplementary" if al.is_supplementary else "Primary", al.mapping_quality,
-                          alStats.hcReadLength, alStats.concordance, alStats.concordanceQv, alStats.mismatchBp,
-                          alStats.nonHpInsertionBp, alStats.nonHpDeletionBp, alStats.hpInsertionBp,
-                          alStats.hpDeletionBp)
-                outcsv.write(row)
-
-                #statscsv.write("%s,%d,%d,%d,%d,%d,%d,%d,%d,%d,%0.10f\n" % (al.query_name, al.query_length, alStats.hcReadLength, alStats.errors,
-                #    alStats.matches, alStats.mismatches, alStats.deletions, alStats.hpDeletions, alStats.insertions, alStats.hpInsertions, alStats.concordance))
-                #al.set_tag("rc", alStats.concordance, "f")
-                #al.set_tag("tl", alStats.hcReadLength, "i")
+                alStats = measureConcordance(al, reffasta, activeHcRegions, activeHcVariants)
+                effectiveCoverage = str(round(al.get_tag("ec"), 2)) if al.has_tag("ec") else ""
+                subreadPasses = str(al.get_tag("np")) if al.has_tag("np") else ""
+                predictedConcordance = "%0.6f" % (al.get_tag("rq")) if al.has_tag("rq") else ""
+                if alStats.hcReadLength > 0:
+                    row = "%s,%d,%s,%s,%s,%s,%d,%d,%0.6f,%0.2f,%d,%d,%d,%d,%d\n" % \
+                              (al.query_name, al.query_length, effectiveCoverage, subreadPasses, predictedConcordance,
+                              "Supplementary" if al.is_supplementary else "Primary", al.mapping_quality,
+                              alStats.hcReadLength, alStats.concordance, alStats.concordanceQv, alStats.mismatchBp,
+                              alStats.nonHpInsertionBp, alStats.nonHpDeletionBp, alStats.hpInsertionBp,
+                              alStats.hpDeletionBp)
+                    outcsv.write(row)
 
         if outbam:
             outbam.write(al)
