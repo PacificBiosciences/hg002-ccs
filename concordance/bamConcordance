@@ -201,6 +201,8 @@ def main():
                  "alignmentMapq,hcReadLengthBp,concordance,concordanceQv,mismatchBp,nonHpInsertionBp," +
                  "nonHpDeletionBp,hpInsertionBp,hpDeletionBp\n")
     hcregionsbed = pysam.TabixFile(args.hcregions) if args.hcregions else None
+    if hcregionsbed:
+        hccontigs = set(hcregionsbed.contigs)
     hcvariantsvcf = pysam.TabixFile(args.hcvariants) if args.hcvariants else None
     outbam = pysam.AlignmentFile(args.outbam, "wb", template=inbam) if args.outbam else None
 
@@ -213,7 +215,7 @@ def main():
                 activeChrom = al.reference_name
                 activeChromLength = reffasta.get_reference_length(activeChrom)
 
-                if hcregionsbed:
+                if hcregionsbed and al.reference_name in hccontigs:
                     # List of non-overlapping, high-confidence regions, sorted by chromStart.
                     activeHcRegions = collections.deque(Bed(x) for x in hcregionsbed.fetch(al.reference_name))
                 else: # treat the whole chromosome as a high-confidence region
